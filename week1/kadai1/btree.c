@@ -53,4 +53,3 @@ int searchNode(struct Node *node, char sortedWord[N]) {
     }
     return 0;
 }
-

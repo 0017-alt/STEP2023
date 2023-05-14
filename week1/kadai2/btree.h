@@ -14,10 +14,14 @@ struct Node {
     struct Node *right;
 };
 
+int score(int li[26]);
+
+int comp(int* list1, int* list2);
+
 struct Node *newNode(char sortedWord[N], char originalWord[N]);
 
 struct Node *insertNode(struct Node *node, char sortedWord[N], char originalWord[N]);
 
-int searchNode(struct Node *node, char sortedWord[N]);
+void searchNode(struct Node *node, char sortedWord[N], int* sc, struct Node *result);
 
 #endif
