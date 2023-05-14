@@ -73,12 +73,27 @@ int main() {
   FILE *fp = fopen("small.txt", "r");
   FILE *fp_w = fopen("small_answer.txt", "w");
   char input[N];
-  char *sorted_input;
   while (fgets(input, N, fp) != NULL) {
-    sorted_input = sort(input);
     struct Node *result = (struct Node *)malloc(sizeof(struct Node));
     int sc = 0;
-    searchNode(root, sorted_input, &sc, result);
+    //countering the number of sortedWord
+    int *li = malloc(sizeof(int) * 26);
+    for (int i = 0; i < 26; i++) {
+      li[i] = 0;
+    }
+    for (int i = 0; i < strlen(input)-1; i++) {
+      if (65 <= input[i] && input[i] <= 90) {
+        li[input[i] - 65]++;
+      }
+      else if (97 <= input[i] && input[i] <= 122) {
+        li[input[i] - 97]++;
+      }
+      else {
+        printf("invaild letter '%c'\n", input[i]);
+        return -1;
+      }
+    }
+    searchNode(root, li, &sc, result);
     fprintf(fp_w, "%s", result->originalWord[0]);
   }
   if (fclose(fp) == EOF) {
@@ -93,10 +108,26 @@ int main() {
   fp = fopen("medium.txt", "r");
   fp_w = fopen("medium_answer.txt", "w");
   while (fgets(input, N, fp) != NULL) {
-    sorted_input = sort(input);
     struct Node *result = (struct Node *)malloc(sizeof(struct Node));
     int sc = 0;
-    searchNode(root, sorted_input, &sc, result);
+    //countering the number of sortedWord
+    int *li = malloc(sizeof(int) * 26);
+    for (int i = 0; i < 26; i++) {
+      li[i] = 0;
+    }
+    for (int i = 0; i < strlen(input)-1; i++) {
+      if (65 <= input[i] && input[i] <= 90) {
+        li[input[i] - 65]++;
+      }
+      else if (97 <= input[i] && input[i] <= 122) {
+        li[input[i] - 97]++;
+      }
+      else {
+        printf("invaild letter '%c'\n", input[i]);
+        return -1;
+      }
+    }
+    searchNode(root, li, &sc, result);
     fprintf(fp_w, "%s", result->originalWord[0]);
   }
   if (fclose(fp) == EOF) {
@@ -111,10 +142,26 @@ int main() {
   fp = fopen("large.txt", "r");
   fp_w = fopen("large_answer.txt", "w");
   while (fgets(input, N, fp) != NULL) {
-    sorted_input = sort(input);
     struct Node *result = (struct Node *)malloc(sizeof(struct Node));
     int sc = 0;
-    searchNode(root, sorted_input, &sc, result);
+    //countering the number of sortedWord
+    int *li = malloc(sizeof(int) * 26);
+    for (int i = 0; i < 26; i++) {
+      li[i] = 0;
+    }
+    for (int i = 0; i < strlen(input)-1; i++) {
+      if (65 <= input[i] && input[i] <= 90) {
+        li[input[i] - 65]++;
+      }
+      else if (97 <= input[i] && input[i] <= 122) {
+        li[input[i] - 97]++;
+      }
+      else {
+        printf("invaild letter '%c'\n", input[i]);
+        return -1;
+      }
+    }
+    searchNode(root, li, &sc, result);
     fprintf(fp_w, "%s", result->originalWord[0]);
   }
   if (fclose(fp) == EOF) {
@@ -125,7 +172,6 @@ int main() {
     perror("file close error\n");
     exit(1);
   }
-
 
   return 0;
 }

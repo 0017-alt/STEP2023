@@ -22,6 +22,6 @@ struct Node *newNode(char sortedWord[N], char originalWord[N]);
 
 struct Node *insertNode(struct Node *node, char sortedWord[N], char originalWord[N]);
 
-void searchNode(struct Node *node, char sortedWord[N], int* sc, struct Node *result);
+void searchNode(struct Node *node, int sortedWord[26], int* sc, struct Node *result);
 
 #endif

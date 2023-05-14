@@ -55,7 +55,7 @@ struct Node *insertNode(struct Node *node, char sortedWord[N], char originalWord
     return node;
 }
 
-void searchNode(struct Node *node, char sortedWord[N], int* sc, struct Node *result) {
+void searchNode(struct Node *node, int sortedWord[26], int* sc, struct Node *result) {
     if (node == NULL) {
         return;
     }
@@ -80,25 +80,7 @@ void searchNode(struct Node *node, char sortedWord[N], int* sc, struct Node *res
       }
     }
 
-    //countering the number of sortedWord
-    int *li2 = malloc(sizeof(int) * 26);
-    for (int i = 0; i < 26; i++) {
-      li2[i] = 0;
-    }
-    for (int i = 0; i < strlen(sortedWord); i++) {
-      if (65 <= sortedWord[i] && sortedWord[i] <= 90) {
-        li2[sortedWord[i] - 65]++;
-      }
-      else if (97 <= sortedWord[i] && sortedWord[i] <= 122) {
-        li2[sortedWord[i] - 97]++;
-      }
-      else {
-        printf("invaild letter '%c'\n", sortedWord[i]);
-        return;
-      }
-    }
-
-    if (comp(li1, li2) == 0) {
+    if (comp(li1, sortedWord) == 0) {
       int tmp_score = score(li1);
       if (tmp_score > *sc) {
         *sc = tmp_score;
@@ -107,7 +89,6 @@ void searchNode(struct Node *node, char sortedWord[N], int* sc, struct Node *res
     }
 
     free(li1);
-    free(li2);
 
     searchNode(node->right, sortedWord, sc, result);
 
