@@ -30,7 +30,7 @@ def calculate_hash(key):
 class Item_hash:
     # |key|         : The ley of the item. The key must be a string.
     # |value|       : The index in chache
-    # |next|        : The next item in the linked list. If this is the last item in the
+    # |next_hash|   : The next item in the linked list of the hashtable. If this is the last item in the
     #                 linked list, |next| is None.
     # |next_cache|  : The item that acceced next
     # |before_cache|: The item that accesed before
@@ -38,7 +38,7 @@ class Item_hash:
         assert type(url) == str
         self.key = url
         self.value = contents
-        self.next = next
+        self.next_hash = next
         self.next_cache = None
         self.before_cache = None
 
@@ -74,7 +74,7 @@ class HashTable:
 			if item.key == key:
 				item.value = value
 				return item
-			item = item.next
+			item = item.next_hash
 		new_item = Item_hash(key, value, self.buckets[bucket_index])
 		self.buckets[bucket_index] = new_item
 		self.item_count += 1
@@ -92,9 +92,9 @@ class HashTable:
 		item = self.buckets[bucket_index]
 		while item:
 			if item.key == key:
-				return (item, True)
-			item = item.next
-		return (None, False)
+				return item
+			item = item.next_hash
+		return None
 
     # Delete an item from the hash table.
     #
@@ -107,7 +107,7 @@ class HashTable:
 		bucket_index = calculate_hash(key) % self.bucket_size
 		item = self.buckets[bucket_index]
 		while item:
-			if not item.next:
+			if not item.next_hash:
 				if item.key == key:
 					self.buckets[bucket_index] = None
 					# Delete the item and release the memory
@@ -124,14 +124,14 @@ class HashTable:
 					return True
 				elif item.next.key == key:
 					# Reconnect with the grandchild
-					tmp = item.next
-					item.next = item.next.next
+					tmp = item.next_hash
+					item.next_hash = item.next_hash.next_hash
 					# Delete the item and release the memory
 					del tmp
 					gc.collect()
 					self.item_count -= 1
 					return True
-			item = item.next
+			item = item.next_hash
 		return False
 
   # Return the total number of items in the hash table.
@@ -166,37 +166,39 @@ class Cache:
     # |contents|: The contents of the URL
     def access_page(self, url, contents):
         response = HashTable.get(self.hashtable, url)
-        if (response[1]):
-            if (response[0] == self.newest):
+        # If the url is already in the cache
+        if response:
+            # If response is the newest item, do nothing
+            if (response == self.newest):
                 return
-            elif (response[0] == self.oldest):
+            # If response is the oldest item, swap the newest item and the oldest item
+            elif (response  == self.oldest):
                 tmp = self.oldest
                 self.oldest = tmp.next_cache
                 self.newest = tmp
-            elif (response[0] == self.oldest.next_cache):
-                self.oldest.next_cache = response[0].next_cache
-                response[0].next_cache.before_cache = self.oldest
-                self.newest.next_cache = response[0]
-                response[0].before_cache = self.newest
-                response[0].next_cache = self.oldest
-                self.oldest.before_cache = response[0]
-                self.newest = response[0]
-            elif (response[0] == self.newest.before_cache):
-                self.newest.before_cache = response[0].before_cache
-                response[0].before_cache.next_cache = self.newest
-                self.newest.next_cache = response[0]
-                response[0].before_cache = self.newest
-                response[0].next_cache = self.oldest
-                self.oldest.before_cache = response[0]
-                self.newest = response[0]
+            # Otherwise, delete the corresponding item and then add it as a new item
+            else:
+                response.before_cache.next_cache = response.next_cache
+                response.next_cache.before_cache = response.before_cache
+                HashTable.delete(self.hashtable, response.key)
+                new_item = HashTable.put(self.hashtable, url, contents)
+                self.newest.next_cache = new_item
+                new_item.before_cache = self.newest
+                self.oldest.before_cache = new_item
+                new_item.next_cache = self.oldest
+                self.newest = new_item
+
+        # If the url does not exist in the cache
         else:
             item_count = self.hashtable.item_count
+            # If the number of caches is 0, just add the item
             if (item_count == 0):
                 new_item = HashTable.put(self.hashtable, url, contents)
                 new_item.before_cache = new_item
                 new_item.next_cache = new_item
                 self.newest = new_item
                 self.oldest = new_item
+            # If the number of cache is less than cache size, just add the item
             elif (item_count < self.n):
                 new_item = HashTable.put(self.hashtable, url, contents)
                 self.newest.next_cache = new_item
@@ -204,9 +206,10 @@ class Cache:
                 self.oldest.before_cache = new_item
                 new_item.next_cache = self.oldest
                 self.newest = new_item
+            # If the cache is full, put the item and delete the oldest cache
             else:
-                new_item = HashTable.put(self.hashtable, url, contents)
                 tmp = self.oldest
+                new_item = HashTable.put(self.hashtable, url, contents)
                 self.oldest = self.oldest.next_cache
                 self.newest.next_cache = new_item
                 new_item.before_cache = self.newest
