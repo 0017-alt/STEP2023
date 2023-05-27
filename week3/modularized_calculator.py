@@ -27,32 +27,68 @@ def read_minus(line, index):
 
 def man_mul(line, index, tokens):
     index += 1
+
+    # Get the adjacent number
     mul1 = tokens.pop()
+
+    # Calculate the right after number
+
+    # If the right after letter is '(', get the sub token from '(' to ')',
+    # evaluate the sub token, multiply the adjacent number with the evaluated number,
+    # and register it to the tokens.
     if (line[index] == '('):
         (mul2, sub_index) = tokenize(line[index:])
         tokens.append({'type': 'NUMBER', 'number': mul1['number'] * evaluate(mul2[0:2])})
         sub_index -= 1
+
+    # Otherwise (if the right after element is number), get the number.
+    # multiply the adjacent number with the right after number,
+    # and register it to the tokens.
     else:
         (mul2, sub_index) = (read_number(line, index), 1)
         tokens.append({'type': 'NUMBER', 'number': mul1['number'] * mul2[0]['number']})
+
+    # Return updated tokens and updated index.
     return tokens, index + sub_index
 
 def man_div(line, index, tokens):
     index += 1
+
+    # Get the adjacent number
     div1 = tokens.pop()
+
+    # Calculate the right after number
+
+    # If the right after letter is '(', get the sub token from '(' to ')',
+    # evaluate the sub token, divide the adjacent number with the evaluated number,
+    # and register it to the tokens.
     if (line[index] == '('):
         (div2, sub_index) = tokenize(line[index:])
         tokens.append({'type': 'NUMBER', 'number': div1['number'] / evaluate(div2[0:2])})
+
+    # Otherwise (if the right after element is number), get the number.
+    # divide the adjacent number with the right after number,
+    # and register it to the tokens.
     else:
         (div2, sub_index) = (read_number(line, index), 1)
         tokens.append({'type': 'NUMBER', 'number': div1['number'] / div2[0]['number']})
+
+    # Return updated tokens and updated index.
     return tokens, index + sub_index
 
 def man_bracket(line, index, tokens):
     index += 1
+
+    # Get the sub tokens from '(' to ')'
     (sub_tokens, sub_index) = tokenize(line[index:])
+
+    # Evaluate the sub tokens
     value_in_brackets = evaluate(sub_tokens)
+
+    # Append the evaluated value in the original tokens as NUMBER
     tokens.append({'type': 'NUMBER', 'number': value_in_brackets})
+
+    # Return updated tokens and updated index
     return tokens, index + sub_index
 
 def tokenize(line):
