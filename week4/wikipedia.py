@@ -132,7 +132,7 @@ class Wikipedia:
     def find_most_popular_pages(self):
         pagerank = dict(zip(self.keys, len(self.titles) * [1.0]))
 
-        while True:
+        for i in range(10000):
             next_pagerank = dict(zip(self.keys, len(self.titles) * [0.0]))
             for i in range(len(self.titles)):
                 if not self.keys[i] in self.links:
@@ -140,17 +140,20 @@ class Wikipedia:
                 else:
                     for j in range(len(self.links[self.keys[i]])):
                         next_pagerank[self.links[self.keys[i]][j]] += 0.85 * pagerank[self.keys[i]] / len(self.links[self.keys[i]])
-                    for j in range(len(self.titles)):
-                        next_pagerank[self.keys[j]] += 0.15 * pagerank[self.keys[i]] / len(self.titles)
-            if pagerank == next_pagerank:
+            for i in range(len(self.titles)):
+                next_pagerank[self.keys[i]] += 0.15
+
+            # If the norm of the difference of pagerank and next_pagerank is less than 0.1, break the manipulation
+            norm = 0
+            pagerank_values = list(pagerank.values())
+            next_page_rank_values = list(next_pagerank.values())
+            for i in range(len(pagerank_values)):
+                norm += (pagerank_values[i] - next_page_rank_values[i])**2
+
+            if norm < 0.001:
                 break
             else:
                 pagerank = next_pagerank
-
-        cnt = 0
-        for i in range(len(pagerank)):
-            cnt += pagerank[self.keys[i]]
-        print(cnt / len(self.titles))
 
         max_index = 0
         for i in range(1, len(pagerank)):
@@ -159,14 +162,6 @@ class Wikipedia:
 
         print("The most important page is:")
         print(self.titles[self.keys[max_index]])
-
-
-    # Do something more interesting!!
-    def find_something_more_interesting(self):
-        #------------------------#
-        # Write your code here!  #
-        #------------------------#
-        pass
 
 
 if __name__ == "__main__":
