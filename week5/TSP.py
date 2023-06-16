@@ -4,6 +4,7 @@ import math
 input_filename = ["input_0.csv", "input_1.csv", "input_2.csv", "input_3.csv", "input_4.csv", "input_5.csv", "input_6.csv"]
 output_filename = ["output_0.txt", "output_1.txt", "output_2.txt", "output_3.txt", "output_4.txt", "output_5.txt", "output_6.txt"]
 
+# 盤面を4分割して、それぞれの範囲で重みをつけて最短位置を探す関数
 def get_distance_upper_right(cor2, max_x, max_y):
     return math.sqrt((max_x - float(cor2[0]))**2 + (max_y - float(cor2[1]))**2)
 
@@ -24,6 +25,7 @@ def get_key(d, val_search):
     else :
         return None
 
+# 単にプリム法を使う
 def tsp1(elements, size):
     current_position = [0,0]
     result = []
@@ -45,6 +47,7 @@ def tsp1(elements, size):
         current_position = values.pop(min_index)
     return result
 
+# 重みをつけて最短経路を見つける
 def tsp2(elements, size):
     if size < 128:
         tsp1(elements, size)
@@ -78,6 +81,7 @@ def tsp2(elements, size):
         for i in range(cluster_size):
             distance_list = []
             index_list = []
+            # 現在位置からの距離を全てのノードについて求める
             for v in values:
                 distance_list.append(get_distance(current_position, v))
                 index_list.append(get_key(elements, v))
@@ -88,6 +92,8 @@ def tsp2(elements, size):
             result.append(str(index_list[min_index] - 1) + "\n")
             current_position = values.pop(min_index)
 
+        # 次に移動する位置の更新
+        # 現在の位置によって重みを変える(盤面を4分割してなんとなく時計回りか反時計回りをするようにしたい)
         if k < 3:
             tmp_dist = []
             for v in values:
