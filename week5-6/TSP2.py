@@ -4,35 +4,13 @@ import random
 from copy import deepcopy
 import bisect
 
+random.seed(42)
+
 input_filename = ["input_0.csv", "input_1.csv", "input_2.csv", "input_3.csv", "input_4.csv", "input_5.csv", "input_6.csv"]
 output_filename = ["output_0.txt", "output_1.txt", "output_2.txt", "output_3.txt", "output_4.txt", "output_5.txt", "output_6.txt"]
 vertexes = [5,8,16,64,128,512,2048]
 ant_num = [10000, 10000, 10000, ]
 points = []
-
-def get_distance(cor1, cor2):
-    return math.sqrt((float(cor1[0]) - float(cor2[0]))**2 + (float(cor1[1]) - float(cor2[1]))**2)
-
-def greedy_algorithm(points, start_index = 0):
-    N = len(points)
-    visited = [False] * N
-    path = [start_index]
-    visited[start_index] = True
-
-    for i in range(N - 1):
-        current = path[-1]
-        min_distance = None
-        next_point = None
-
-        for j in range(N):
-            if not visited[j]:
-                distance = get_distance(points[current], points[j])
-                if min_distance is None or distance < min_distance:
-                    min_distance = distance
-                    next_point = j
-        path.append(next_point)
-        visited[next_point] = True
-    return path
 
 class Parameters:
     # Set parameters
@@ -65,7 +43,7 @@ class Parameters:
 class Graph:
     # Create a graph.
     # |m_num_of_vertexes|    : the number of vertexes
-    # |m_coodinate|          : accumulate coodinates
+    # |m_coordinate|         : accumulate coodinates
     # |m_edge_length|        : the length of each edge
     # |m_edge_pheromone|     : the amount of pheromone on eash edge
     # |m_edge_heuristic|     : preserve the heuristic values of the edges
@@ -154,6 +132,8 @@ class Ant:
             self.m_visited_path.append(to)
             self.m_visited_vertex[to] = True
 
+        self.m_visited_path.append(self.m_init_vertex)
+
     def calc_next_pheromone(self):
         length = self.calc_all_path_length()
         Q = self.m_parameters.mC_Q
@@ -162,7 +142,7 @@ class Ant:
 
     def calc_all_path_length(self):
         length = 0
-        for i in range(self.m_num_of_vertexes - 1):
+        for i in range(self.m_num_of_vertexes):
             length += self.m_graph.m_edge_length[self.m_visited_path[i]][self.m_visited_path[i+1]]
         return length
 
@@ -268,8 +248,8 @@ class ACOSolver:
                 self.reset_pheromones()
                 self.m_cnt_super_not_change = 0
 
-            print(self.m_super_ant[0])
-            return self.m_super_ant[1]
+        print(self.m_super_ant[0])
+        return self.m_super_ant[1]
 
     def reset_pheromones(self):
         self.m_graph.reset_graph_when_stagnation()
@@ -296,7 +276,97 @@ class ACOSolver:
             for j in range(num_of_vertexes):
                 self.m_graph.m_edge_pheromone[i][j] = min(tau_max, max(self.m_graph.m_edge_pheromone[i][j], tau_min))
 
-for i in range(7):
+# Calculate ditances
+def get_distance_upper_right(cor2, max_x, max_y):
+    return math.sqrt((max_x - float(cor2[0]))**2 + (max_y - float(cor2[1]))**2)
+
+def get_distance(cor1, cor2):
+    return math.sqrt((float(cor1[0]) - float(cor2[0]))**2 + (float(cor1[1]) - float(cor2[1]))**2)
+
+def get_distance_lower_left(cor2, min_x, min_y):
+    return math.sqrt((min_y - float(cor2[1]))**2 + (min_x - float(cor2[0]))**2)
+
+def get_distance_lower_right(cor2, max_x, min_y):
+    return math.sqrt((min_y - float(cor2[1]))**2 + (max_x - float(cor2[0]))**2)
+
+# Get key from value
+def get_key(d, val_search):
+    keys = [key for key, value in d.items() if value == val_search]
+    if keys :
+        return keys[0]
+    else :
+        return None
+
+def tsp(elements, size):
+    cluster_size = int(size/4)
+
+    result = []
+    max_x = 0
+    min_y = 0
+    min_x = 0
+    max_y = 0
+    flag = 0
+
+    values = list(elements.values())
+    values.pop(0)
+
+    current_position = [0,0]
+    y_list = []
+    x_list = []
+
+    for k in range(4):
+        if k == 0:
+            for v in values:
+                y_list.append(float(v[1]))
+                x_list.append(float(v[0]))
+            max_x = max(x_list)
+            min_y = min(y_list)
+            min_x = min(x_list)
+            max_y = max(y_list)
+
+        for i in range(cluster_size):
+            distance_list = []
+            index_list = []
+            # 現在位置からの距離を全てのノードについて求める
+            for v in values:
+                distance_list.append(get_distance(current_position, v))
+                index_list.append(get_key(elements, v))
+            min_index = 0
+            for j in range(len(distance_list)):
+                if distance_list[min_index] > distance_list[j]:
+                    min_index = j
+            result.append(str(index_list[min_index] - 1) + "\n")
+            current_position = values.pop(min_index)
+
+        # 次に移動する位置の更新
+        # 現在の位置によって重みを変える(盤面を4分割してなんとなく時計回りか反時計回りをするようにしたい)
+        if k < 3:
+            tmp_dist = []
+            for v in values:
+                if (float(current_position[1]) - min_y) < (max_y - min_y) / 2 or flag == 1:
+                    if k == 0:
+                        flag = 1
+                        tmp_dist.append(get_distance_lower_left(v, min_x, min_y) + 2 * get_distance(current_position, v))
+                    elif k == 1:
+                        tmp_dist.append(get_distance_lower_right(v, max_x, min_y) + 2 * get_distance(current_position, v))
+                    elif k == 2:
+                        tmp_dist.append(get_distance_upper_right(v, max_x, max_y) + 2 * get_distance(current_position, v))
+                else:
+                    if k == 0:
+                        tmp_dist.append(get_distance_upper_right(v, max_x, max_y) + 2 * get_distance(current_position, v))
+                    elif k == 1:
+                        tmp_dist.append(get_distance_lower_right(v, max_x, min_y) + 2 * get_distance(current_position, v))
+                    elif k == 2:
+                        tmp_dist.append(get_distance_lower_left(v, min_x, min_y) + 2 * get_distance(current_position, v))
+            min_index = 0
+            for j in range(len(tmp_dist)):
+                if tmp_dist[min_index] > tmp_dist[j]:
+                    min_index = j
+                current_position = values[min_index]
+
+    return result
+
+for i in range(3):
     with open(input_filename[i], 'r') as f:
         reader = csv.reader(f)
         next(reader)  # skip the header
@@ -306,12 +376,9 @@ for i in range(7):
     result_int = []
     result = []
 
-    if (vertexes[i] < 100):
-        result_int = greedy_algorithm(points)
-    else:
-        aco_solver = ACOSolver(num_of_ants=10000, num_of_vertexes=vertexes[i], Q=48, alpha=3, beta=5, rou=0.2, max_iterations=300,
-                        initial_vertex=0, tau_min=0.665, tau_max=10, ant_prob_random=0.1, super_not_change=30)
-        result_int = aco_solver.run_aco()
+    aco_solver = ACOSolver(num_of_ants=100, num_of_vertexes=vertexes[i], Q=100, alpha=3, beta=2, rou=0.8, max_iterations=500,
+                    initial_vertex=0, tau_min=0, tau_max=100, ant_prob_random=0.1, super_not_change=30)
+    result_int = aco_solver.run_aco()
 
     result.append("index\n")
     for index in result_int:
@@ -321,3 +388,19 @@ for i in range(7):
     f_out.writelines(result)
     f_out.close
     points = []
+
+for i in range(3,7):
+    elements = {}
+    counter = 0
+    with open(input_filename[i], encoding='utf8', newline='') as f_in:
+        csvreader = csv.reader(f_in)
+        for row in csvreader:
+            elements[counter] = row
+            counter += 1
+
+    result = tsp(elements, counter - 1)
+    result.insert(0, "index\n")
+
+    f_out = open(output_filename[i], 'w')
+    f_out.writelines(result)
+    f_out.close
