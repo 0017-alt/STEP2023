@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BIN_SIZE 1
+#define BIN_SIZE 2
 
 //
 // Interfaces to get memory pages from OS
@@ -52,6 +52,7 @@ void my_add_to_free_list(my_metadata_t *metadata) {
   while (bin_index < BIN_SIZE - 1 && metadata->size > (bin_index + 1) * (4000 / BIN_SIZE)) {
     bin_index++;
   }
+  printf("add %lu : %lu : %lu\n", bin_index, metadata, metadata->size);
   metadata->next = bins[bin_index].free_head;
   bins[bin_index].free_head = metadata;
 }
@@ -66,6 +67,7 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   } else {
     bins[bin_index].free_head = metadata->next;
   }
+  printf("remove %lu : %lu : %lu\n", bin_index, metadata, metadata->size);
   metadata->next = NULL;
 }
 
@@ -87,21 +89,29 @@ void my_initialize() {
 // 4000. You are not allowed to use any library functions other than
 // mmap_from_system() / munmap_to_system().
 void *my_malloc(size_t size) {
+  printf("size: %lu\n", size);
   my_metadata_t *best_fit = NULL;
   my_metadata_t *prev_best_fit = NULL;
   size_t bin_index = 0;
   while (bin_index < BIN_SIZE - 1 && size > (bin_index + 1) * (4000 / BIN_SIZE)) {
     bin_index++;
   }
-  my_metadata_t *metadata = bins[bin_index].free_head;
-  my_metadata_t *prev = NULL;
-  while (metadata) {
-    if (metadata->size >= size && (!best_fit || metadata->size < best_fit->size)) {
-      best_fit = metadata;
-      prev_best_fit = prev;
+  printf("bin_index: %lu\n", bin_index);
+  for (size_t i = bin_index; i < BIN_SIZE; i++) {
+    my_metadata_t *metadata = bins[i].free_head;
+    my_metadata_t *prev = NULL;
+    while (metadata) {
+      if (metadata->size >= size && (!best_fit || metadata->size < best_fit->size)) {
+        best_fit = metadata;
+        prev_best_fit = prev;
+        printf("best_fit: %lu\n", best_fit->size);
+      }
+      prev = metadata;
+      metadata = metadata->next;
     }
-    prev = metadata;
-    metadata = metadata->next;
+    if (best_fit) {
+      break;
+    }
   }
   // Best-fit: Find the best free slot the object fits.
   // now, best_fit points to the best free slot
@@ -117,11 +127,11 @@ void *my_malloc(size_t size) {
     //     <---------------------->
     //            buffer_size
     size_t buffer_size = 4096;
-    best_fit = (my_metadata_t *)mmap_from_system(buffer_size);
-    best_fit->size = buffer_size - sizeof(my_metadata_t);
-    best_fit->next = NULL;
+    my_metadata_t *metadata = (my_metadata_t *)mmap_from_system(buffer_size);
+    metadata->size = buffer_size - sizeof(my_metadata_t);
+    metadata->next = NULL;
     // Add the memory region to the free list.
-    my_add_to_free_list(best_fit);
+    my_add_to_free_list(metadata);
     // Now, try my_malloc() again. This should succeed.
     return my_malloc(size);
   }
@@ -131,11 +141,11 @@ void *my_malloc(size_t size) {
   // ... | metadata | object | ...
   //     ^          ^
   //     metadata   ptr
-  void *ptr = best_fit + 1;
-  size_t remaining_size = best_fit->size - size;
-  best_fit->size = size;
+
   // Remove the free slot from the free list.
   my_remove_from_free_list(best_fit, prev_best_fit);
+  void *ptr = best_fit + 1;
+  size_t remaining_size = best_fit->size - size;
 
   if (remaining_size > sizeof(my_metadata_t)) {
     // Create a new metadata for the remaining free slot.
