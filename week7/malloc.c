@@ -13,8 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
-#define BIN_SIZE 1
+#define BIN_SIZE 5
 
 //
 // Interfaces to get memory pages from OS
@@ -46,27 +47,43 @@ my_heap_t bins[BIN_SIZE];
 // Helper functions (feel free to add/remove/edit!)
 //
 
-void my_add_to_free_list(my_metadata_t *metadata) {
-  assert(!metadata->next);
-  size_t bin_index = 0;
-  while (bin_index < BIN_SIZE - 1 && metadata->size > (bin_index + 1) * (4000 / BIN_SIZE)) {
-    bin_index++;
+size_t findNearestPowerOfTwo(size_t num) {
+  size_t power = 0;
+  while (1024 * power <= num) {
+      power++;
   }
-  metadata->next = bins[bin_index].free_head;
-  bins[bin_index].free_head = metadata;
+  return power - 1;
 }
 
 void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
-  size_t bin_index = 0;
-  while (bin_index < BIN_SIZE - 1 && metadata->size > (bin_index + 1) * (4000 / BIN_SIZE)) {
-    bin_index++;
-  }
+  size_t bin_index = findNearestPowerOfTwo(metadata->size);
+  //printf("remove %lu from bin%lu\n", metadata->size, bin_index);
   if (prev) {
     prev->next = metadata->next;
   } else {
     bins[bin_index].free_head = metadata->next;
   }
   metadata->next = NULL;
+}
+
+void my_add_to_free_list(my_metadata_t *metadata) {
+  assert(!metadata->next);
+  size_t bin_index = findNearestPowerOfTwo(metadata->size);
+  //printf("add %lu to bin%lu\n", metadata->size, bin_index);
+
+  size_t buffer_size = 0;
+  my_metadata_t *tmp = bins[bin_index].free_head;
+  while (tmp) {
+    buffer_size += tmp->size;
+    tmp = tmp->next;
+  }
+  bins[bin_index].free_head = &bins[0].dummy;
+  bins[bin_index].dummy.size = 0;
+  bins[bin_index].dummy.next = NULL;
+  metadata->size += buffer_size;
+
+  metadata->next = bins[bin_index].free_head;
+  bins[bin_index].free_head = metadata;
 }
 
 //
@@ -87,21 +104,25 @@ void my_initialize() {
 // 4000. You are not allowed to use any library functions other than
 // mmap_from_system() / munmap_to_system().
 void *my_malloc(size_t size) {
+  //printf("size: %lu\n", size);
   my_metadata_t *best_fit = NULL;
   my_metadata_t *prev_best_fit = NULL;
-  size_t bin_index = 0;
-  while (bin_index < BIN_SIZE - 1 && size > (bin_index + 1) * (4000 / BIN_SIZE)) {
-    bin_index++;
-  }
-  my_metadata_t *metadata = bins[bin_index].free_head;
-  my_metadata_t *prev = NULL;
-  while (metadata) {
-    if (metadata->size >= size && (!best_fit || metadata->size < best_fit->size)) {
-      best_fit = metadata;
-      prev_best_fit = prev;
+  size_t bin_index = findNearestPowerOfTwo(size);
+  for (size_t i = bin_index; i < BIN_SIZE; i++) {
+    my_metadata_t *metadata = bins[i].free_head;
+    my_metadata_t *prev = NULL;
+    while (metadata) {
+      //printf("bin%lu size: %lu\n", i, metadata->size);
+      if (metadata->size >= size && (!best_fit || metadata->size < best_fit->size)) {
+        best_fit = metadata;
+        prev_best_fit = prev;
+      }
+      prev = metadata;
+      metadata = metadata->next;
     }
-    prev = metadata;
-    metadata = metadata->next;
+    if (best_fit) {
+      break;
+    }
   }
   // Best-fit: Find the best free slot the object fits.
   // now, best_fit points to the best free slot
@@ -117,24 +138,37 @@ void *my_malloc(size_t size) {
     //     <---------------------->
     //            buffer_size
     size_t buffer_size = 4096;
-    best_fit = (my_metadata_t *)mmap_from_system(buffer_size);
-    best_fit->size = buffer_size - sizeof(my_metadata_t);
-    best_fit->next = NULL;
+    my_metadata_t *tmp = (my_metadata_t *)mmap_from_system(buffer_size);
+    if (bins[0].free_head->size > 0) {
+      my_metadata_t *metadata = bins[0].free_head;
+      while (metadata) {
+        buffer_size += metadata->size;
+        metadata = metadata->next;
+      }
+      bins[0].free_head = &bins[0].dummy;
+      bins[0].dummy.size = 0;
+      bins[0].dummy.next = NULL;
+    }
+    tmp->size = buffer_size - sizeof(my_metadata_t);
+    tmp->next = NULL;
+    size_t bin_index = findNearestPowerOfTwo(tmp->size);
     // Add the memory region to the free list.
-    my_add_to_free_list(best_fit);
+    my_add_to_free_list(tmp);
     // Now, try my_malloc() again. This should succeed.
     return my_malloc(size);
   }
+
+  //printf("best_fit->size: %lu\n", best_fit->size);
 
   // |ptr| is the beginning of the allocated object.
   //
   // ... | metadata | object | ...
   //     ^          ^
   //     metadata   ptr
+  // Remove the free slot from the free list.
   void *ptr = best_fit + 1;
   size_t remaining_size = best_fit->size - size;
-  best_fit->size = size;
-  // Remove the free slot from the free list.
+
   my_remove_from_free_list(best_fit, prev_best_fit);
 
   if (remaining_size > sizeof(my_metadata_t)) {
@@ -145,26 +179,36 @@ void *my_malloc(size_t size) {
     //     metadata   ptr      new_metadata
     //                 <------><---------------------->
     //                   size       remaining size
+    // Shrink the metadata for the allocated object
+    // to separate the rest of the region corresponding to remaining_size.
+    // If the remaining_size is not large enough to make a new metadata,
+    // this code path will not be taken and the region will be managed
+    // as a part of the allocated object.
+    best_fit->size = size;
     my_metadata_t *new_metadata = (my_metadata_t *)((char *)ptr + size);
     new_metadata->size = remaining_size - sizeof(my_metadata_t);
     new_metadata->next = NULL;
     // Add the remaining free slot to the free list.
     my_add_to_free_list(new_metadata);
   }
+  //printf("ptr: %lu\n\n", ptr);
   return ptr;
 }
 
 // This is called every time an object is freed.  You are not allowed to
 // use any library functions other than mmap_from_system / munmap_to_system.
 void my_free(void *ptr) {
+  //printf("free\n");
   // Look up the metadata. The metadata is placed just prior to the object.
   //
   // ... | metadata | object | ...
   //     ^          ^
   //     metadata   ptr
   my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
+  //printf("metadata->next: %lu\n", metadata->next->size);
   // Add the free slot to the free list.
   my_add_to_free_list(metadata);
+  //printf("\n");
 }
 
 // This is called at the end of each challenge.
