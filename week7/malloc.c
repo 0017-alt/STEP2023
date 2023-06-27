@@ -57,7 +57,6 @@ size_t findNearestPowerOfTwo(size_t num) {
 
 void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
   size_t bin_index = findNearestPowerOfTwo(metadata->size);
-  //printf("remove %lu from bin%lu\n", metadata->size, bin_index);
   if (prev) {
     prev->next = metadata->next;
   } else {
@@ -69,19 +68,6 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
 void my_add_to_free_list(my_metadata_t *metadata) {
   assert(!metadata->next);
   size_t bin_index = findNearestPowerOfTwo(metadata->size);
-  //printf("add %lu to bin%lu\n", metadata->size, bin_index);
-
-  size_t buffer_size = 0;
-  my_metadata_t *tmp = bins[bin_index].free_head;
-  while (tmp) {
-    buffer_size += tmp->size;
-    tmp = tmp->next;
-  }
-  bins[bin_index].free_head = &bins[0].dummy;
-  bins[bin_index].dummy.size = 0;
-  bins[bin_index].dummy.next = NULL;
-  metadata->size += buffer_size;
-
   metadata->next = bins[bin_index].free_head;
   bins[bin_index].free_head = metadata;
 }
@@ -104,7 +90,6 @@ void my_initialize() {
 // 4000. You are not allowed to use any library functions other than
 // mmap_from_system() / munmap_to_system().
 void *my_malloc(size_t size) {
-  //printf("size: %lu\n", size);
   my_metadata_t *best_fit = NULL;
   my_metadata_t *prev_best_fit = NULL;
   size_t bin_index = findNearestPowerOfTwo(size);
@@ -112,7 +97,6 @@ void *my_malloc(size_t size) {
     my_metadata_t *metadata = bins[i].free_head;
     my_metadata_t *prev = NULL;
     while (metadata) {
-      //printf("bin%lu size: %lu\n", i, metadata->size);
       if (metadata->size >= size && (!best_fit || metadata->size < best_fit->size)) {
         best_fit = metadata;
         prev_best_fit = prev;
@@ -198,14 +182,12 @@ void *my_malloc(size_t size) {
 // This is called every time an object is freed.  You are not allowed to
 // use any library functions other than mmap_from_system / munmap_to_system.
 void my_free(void *ptr) {
-  //printf("free\n");
   // Look up the metadata. The metadata is placed just prior to the object.
   //
   // ... | metadata | object | ...
   //     ^          ^
   //     metadata   ptr
   my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
-  //printf("metadata->next: %lu\n", metadata->next->size);
   // Add the free slot to the free list.
   my_add_to_free_list(metadata);
   //printf("\n");
